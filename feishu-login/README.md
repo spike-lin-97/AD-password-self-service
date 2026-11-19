@@ -26,7 +26,7 @@ make build          # 生成 bin/password-self-service
 make run            # go run，读取 etc/password-self-service.yaml
 ```
 
-浏览器打开 `http://<本机IP>:8080`。健康检查：`curl http://127.0.0.1:8080/health`。
+浏览器打开 `http://<本机IP>:8090`。健康检查：`curl http://127.0.0.1:8090/health`。
 
 ## 配置
 
@@ -36,15 +36,15 @@ make run            # go run，读取 etc/password-self-service.yaml
 
 | 段 | 说明 |
 | --- | --- |
-| `server.addr` | 监听地址，默认 `:8080`。生产建议 `server.mode: release` |
+| `server.addr` | 监听地址，示例配置为 `:8090`（代码内置兜底 `:8080`）。生产建议 `server.mode: release` |
 | `ldap.host/port/tls` | 域控地址，生产用 `port: 636` + `tls: true` |
 | `ldap.username/password` | 有改密、解锁权限的绑定账号（DN） |
 | `ldap.base` | 搜索起点，例如 `OU=FeishuSync,DC=example,DC=com` |
 | `ldap.skip-verify` | `true` 时跳过 LDAPS 证书校验（自签/过期证书可用）。配好企业 CA 后改为 `false` 并填写 `ca-file` / `tls-server-name` |
 | `feishu.app-id` / `app-secret` | 飞书应用凭证 |
-| `feishu.redirect-url` | 必须与飞书开放平台「重定向 URL」**逐字一致**，例如 `http://localhost:8080/api/v1/auth/feishu/callback` |
+| `feishu.redirect-url` | 必须与飞书开放平台「重定向 URL」**逐字一致**，例如 `http://localhost:8090/api/v1/auth/feishu/callback` |
 | `session.hash-key` / `block-key` | Cookie 加解密密钥。生产必须换成随机值：`hash-key` 建议 32 字节，`block-key` 必须是 16/24/32 字节 |
-| `admin.username` / `password` | `/admin.html` 后台账号，部署后请立刻改掉默认密码 |
+| `admin.username` / `password` | `/admin.html` 后台账号，默认是 `admin` / `change-me`，部署后**必须立刻修改** |
 
 飞书开放平台还需把该回调地址加到应用的 **安全设置 → 重定向 URL**。匹配规则：飞书用户姓名 = AD `displayName`，且在 `feishu.ad-user-base`（默认等于 `ldap.base`）下唯一。
 
@@ -91,11 +91,11 @@ sudo ./deploy/install.sh
 4. 写入 `/etc/systemd/system/password-self-service.service`
 5. `systemctl enable --now`：开机自启并立刻启动
 
-若 8080 已被旧的 `go run` / 手工进程占用，先停掉再装：
+若 8090 已被旧的 `go run` / 手工进程占用，先停掉再装：
 
 ```bash
-# 看谁占用了 8080
-sudo ss -lntp | grep 8080
+# 看谁占用了 8090
+sudo ss -lntp | grep 8090
 # 停掉后重新执行 install.sh，或：
 sudo systemctl restart password-self-service
 ```
@@ -117,17 +117,17 @@ sudo journalctl -u password-self-service -f
 sudo journalctl -u password-self-service -n 100 --no-pager
 ```
 
-启动成功日志里会有 `Starting server on :8080`。然后：
+启动成功日志里会有 `Starting server on :8090`。然后：
 
 ```bash
-curl http://127.0.0.1:8080/health
+curl http://127.0.0.1:8090/health
 # 期望：{"status":"ok"}
 ```
 
-防火墙若开了 ufw，放行 8080：
+防火墙若开了 ufw，放行 8090：
 
 ```bash
-sudo ufw allow 8080/tcp
+sudo ufw allow 8090/tcp
 ```
 
 ### 4. 改配置 / 升级程序
@@ -167,6 +167,17 @@ sudo userdel pss    # 可选
 ```
 
 ---
+
+---
+
+## CI/CD 自动部署
+
+推送到 `main` 分支会自动跑 `.gitlab-ci.yml`（`build` → `deploy`），发布到 `192.168.9.7`，线上地址 <http://192.168.9.7:8090>；其他分支不触发。
+
+- **Runner**：shell 执行器，运行在 `192.168.9.10` 的 `gitlab-runner` 容器内，作业用户 `gitlab-runner` 无 `/usr/local` 写权限。
+- **build**：CI 脚本下载 Go 1.22.12 解压到 `$CI_PROJECT_DIR/.go` 并加入 `PATH`，用 `vendor/` 离线编译出 `bin/password-self-service`（artifacts 保留 7 天）。
+- **deploy**：依赖 CI/CD 变量 `DEPLOY_PASSWORD`（发布机 `skyland` 的密码，兼作 sudo 密码），Runner 容器需预装 `sshpass`。脚本 scp 二进制、`.service`、YAML 示例和 `ci-install.sh` 到发布机 `/tmp`，再 sudo 执行 `ci-install.sh`：创建 `pss` 用户、安装到 `/opt/password-self-service/`、注册并启动 `password-self-service.service`、curl `127.0.0.1:8090/health` 做健康检查。
+- **配置不覆盖**：`ci-install.sh` 只在 YAML 不存在时写入示例配置；已存在则保留。因此改端口或改参数必须直接编辑发布机上的 `/opt/password-self-service/etc/password-self-service.yaml` 并 `systemctl restart password-self-service`，只改仓库重新部署不会生效。该 YAML 属主 `pss`、权限 0640，查看需 `sudo`。
 
 ## 页面入口
 
