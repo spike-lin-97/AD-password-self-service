@@ -1,148 +1,47 @@
-# AD密码自助平台
+# 密码自助平台
 
+面向微软 Active Directory 的密码自助服务。员工可以用飞书扫码、飞书一键授权或 AD 账密登录，然后自行修改域密码、解锁被锁定的账户。
 
+仓库里有两套程序：
 
-## Getting started
+- `feishu-login/`：当前使用的服务。页面打进二进制，部署时只需要可执行文件和 YAML。
+- 仓库根目录：更早的短信 / 邮件验证码方案，保留作参考。
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+登录页的源码在 `login-new/`（带动画角色的 React 页面）。构建后写入 `feishu-login/web/`，由 Go 服务嵌入。
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## 本地运行
 
-## Add your files
-
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin http://localhost:6061/chuangwei/ad.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-* [Set up project integrations](http://localhost:6061/chuangwei/ad/-/settings/integrations)
-
-## Collaborate with your team
-
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
-=======
-# 1. 项目介绍
-password-self-service 是一个基于[Gin](https://gin-gonic.com)开发的基于微软AD域控的密码自助平台，帮助企业员工快速重置密码和解锁账号，减少对IT运维的依赖。
-
-
-
-# 2. 技术选型
-- 后端：用 [Gin](https://gin-gonic.com/) 快速搭建基础restful风格API，[Gin](https://gin-gonic.com/) 是一个go语言编写的Web框架。
-- API文档：使用`Swagger`构建自动化文档。
-- 配置文件：使用 [viper](https://github.com/spf13/viper) 实现`yaml`格式的配置文件。
-- 日志：使用 [zap](https://github.com/uber-go/zap) 实现日志记录。
-
-
-
-# 3. 功能
-
-- [x] 重置密码
-- [x] 解锁账户
-- [x] 密码过期通知
-- [x] 支持邮件方式发送消息
-- [x] 支持阿里云短信方式发送消息
-- [x] 支持阿里云语音方式发送消息
-- [x] 支持腾讯云短信方式发送消息
-- [ ] 支持腾讯云语音方式发送消息
-- [ ] 支持华为云短信方式发送消息
-- [ ] 支持华为云语音方式发送消息
-- [ ] 支持火山云短信方式发送消息
-- [ ] 支持火山云语音方式发送消息
-
-
-
-# 4. 部署服务
-
-使用[docker-compose](manifest/docker/docker-compose.yml)部署。
-
-使用[kubernetes](manifest/k8s)部署。
-
-
-
-# 5. 二次开发
-
-```shell
-# 拉取代码
-git clone https://github.com/kubeop/password-self-service.git
-
-# 安装swag
-go install github.com/swaggo/swag/cmd/swag@latest
-
-# 下载依赖并生成swagger文档
-make init
-
-# 启动服务
+```bash
+cd feishu-login
+# 编辑 etc/password-self-service.yaml，填入自己的域控和飞书应用
 make run
 ```
 
+浏览器打开 `http://localhost:8080`。健康检查：`curl http://127.0.0.1:8080/health`。
+
+改登录页之后需要重新构建前端，再编译 Go：
+
+```bash
+cd login-new
+npm install
+npm run build
+cd ../feishu-login
+make build
+```
+
+配置说明、systemd 安装和页面入口见 [feishu-login/README.md](feishu-login/README.md)。
+
+## 配置注意
+
+`etc/password-self-service.yaml` 里的域名、账号和密钥都是占位符。部署前请换成自己的值，尤其是：
+
+- LDAP 绑定账号
+- 飞书 App ID / App Secret 和重定向 URL
+- `session.hash-key` / `session.block-key`（生产必须用随机值）
+- 管理后台密码
+
+不要把真实口令提交到仓库。
+
+## 许可
+
+GPL-3.0。根目录的短信 / 邮件方案来自 [kubeop/password-self-service](https://github.com/kubeop/password-self-service)。

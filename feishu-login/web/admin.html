@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台</title>
+    <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body class="console-body">
+    <header class="console-header">
+        <span>管理后台</span>
+        <div class="header-actions">
+            <a href="/">返回登录</a>
+            <button type="button" class="header-link" id="logoutBtn" hidden>退出</button>
+        </div>
+    </header>
+
+    <main class="console-main admin-main">
+        <section id="loginPane">
+            <h1>管理员登录</h1>
+            <form id="adminLoginForm" class="account-card">
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input id="adminUser" autocomplete="username" required>
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input id="adminPass" type="password" autocomplete="current-password" required>
+                    <div class="error-message" id="loginError"></div>
+                </div>
+                <button class="btn btn-primary" type="submit">登录</button>
+            </form>
+        </section>
+
+        <section id="workspace" hidden>
+            <nav class="admin-nav">
+                <button type="button" class="tab active" data-page="settings">系统配置</button>
+                <button type="button" class="tab" data-page="logs">操作日志</button>
+            </nav>
+
+            <div id="settingsPane">
+            <h1>系统配置</h1>
+            <p class="hint" id="tlsNote"></p>
+
+            <form id="settingsForm">
+                <h2>飞书应用</h2>
+                <div class="form-group">
+                    <label>App ID</label>
+                    <input id="fsAppId">
+                </div>
+                <div class="form-group">
+                    <label>App Secret（留空表示不修改）</label>
+                    <input id="fsAppSecret" type="password" placeholder="已设置则不必重复填写" autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label>重定向 URL</label>
+                    <input id="fsRedirect">
+                </div>
+                <div class="form-group">
+                    <label>AD 用户搜索 Base</label>
+                    <input id="fsUserBase">
+                </div>
+                <button type="button" class="btn btn-ghost" id="testFeishuBtn">测试飞书连接</button>
+                <div class="success-message" id="fsTestOk"></div>
+                <div class="error-message" id="fsTestErr"></div>
+
+                <h2>AD 域控</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>主机</label>
+                        <input id="ldapHost">
+                    </div>
+                    <div class="form-group">
+                        <label>端口</label>
+                        <input id="ldapPort" type="number">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>绑定账号 DN</label>
+                    <input id="ldapUser">
+                </div>
+                <div class="form-group">
+                    <label>绑定密码（留空表示不修改）</label>
+                    <input id="ldapPass" type="password" placeholder="已设置则不必重复填写" autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label>Base DN</label>
+                    <input id="ldapBase">
+                </div>
+                <div class="form-group">
+                    <label>证书 Server Name（用 IP 连接且要校验时填写）</label>
+                    <input id="ldapServerName" placeholder="例如 dc.example.com">
+                </div>
+                <div class="form-group">
+                    <label>CA 证书路径（可选）</label>
+                    <input id="ldapCA">
+                </div>
+                <label class="check">
+                    <input type="checkbox" id="ldapTLS"> 使用 LDAPS
+                </label>
+                <label class="check">
+                    <input type="checkbox" id="ldapSkip"> 跳过 TLS 证书校验（推荐：自签/过期证书仍可连接）
+                </label>
+                <div class="form-group">
+                    <label>密码最长天数（域策略读不到时的兜底）</label>
+                    <input id="ldapMaxDays" type="number">
+                </div>
+                <button type="button" class="btn btn-ghost" id="testLdapBtn">测试 AD 连接</button>
+                <pre class="test-out" id="ldapTestOut" hidden></pre>
+                <div class="success-message" id="ldapTestOk"></div>
+                <div class="error-message" id="ldapTestErr"></div>
+
+                <h2>后台账号</h2>
+                <div class="form-group">
+                    <label>管理员用户名</label>
+                    <input id="admUser">
+                </div>
+                <div class="form-group">
+                    <label>管理员密码（留空表示不修改）</label>
+                    <input id="admPass" type="password" autocomplete="new-password">
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="saveBtn">保存配置</button>
+                <div class="success-message" id="saveOk"></div>
+                <div class="error-message" id="saveErr"></div>
+            </form>
+            </div>
+
+            <div id="logsPane" class="hidden">
+                <h1>操作日志</h1>
+                <p class="hint">记录用户登录、改密、解锁。MAC 仅当用户与本机在同一二层网络时能从 ARP 表读到，浏览器无法上报网卡地址。</p>
+                <div class="log-toolbar">
+                    <input id="logQuery" placeholder="搜索账号、姓名、IP、MAC、操作">
+                    <button type="button" class="btn btn-primary" id="logSearchBtn">查询</button>
+                </div>
+                <div class="log-table-wrap">
+                    <table class="log-table">
+                        <thead>
+                            <tr>
+                                <th>变更时间</th>
+                                <th>IP</th>
+                                <th>MAC</th>
+                                <th>操作系统</th>
+                                <th>操作的 AD</th>
+                                <th>操作</th>
+                                <th>下次到期时间</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logBody">
+                            <tr><td colspan="7" class="hint">暂无记录</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="log-pager">
+                    <button type="button" class="btn btn-ghost" id="logPrev">上一页</button>
+                    <span id="logPageInfo">—</span>
+                    <button type="button" class="btn btn-ghost" id="logNext">下一页</button>
+                </div>
+            </div>
+        </section>
+    </main>
+    <script src="/assets/js/common.js"></script>
+    <script src="/assets/js/admin.js"></script>
+</body>
+</html>

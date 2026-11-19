@@ -1,0 +1,73 @@
+# main 分支：编译飞书/AD 密码自助服务，并发布到目标机。
+# 在 GitLab 项目 CI/CD 变量中配置 SSH_PRIVATE_KEY（可登录 DEPLOY_USER 的私钥）。
+
+stages:
+  - build
+  - deploy
+
+variables:
+  DEPLOY_HOST: "192.168.9.7"
+  DEPLOY_USER: "root"
+  GOPROXY: "https://goproxy.cn,direct"
+
+build:
+  stage: build
+  image: golang:1.22
+  script:
+    - cd feishu-login
+    - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor -ldflags="-s -w" -o bin/password-self-service main.go
+  artifacts:
+    paths:
+      - feishu-login/bin/password-self-service
+    expire_in: 7 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+deploy:
+  stage: deploy
+  image: alpine:3.20
+  needs:
+    - build
+  environment:
+    name: production
+    url: http://192.168.9.7:8080
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  before_script:
+    - apk add --no-cache openssh-client bash curl
+    - test -n "$SSH_PRIVATE_KEY" || (echo "缺少 CI/CD 变量 SSH_PRIVATE_KEY" && exit 1)
+    - eval "$(ssh-agent -s)"
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+  script:
+    - scp -o StrictHostKeyChecking=yes feishu-login/bin/password-self-service "$DEPLOY_USER@$DEPLOY_HOST:/tmp/password-self-service.new"
+    - scp -o StrictHostKeyChecking=yes feishu-login/deploy/password-self-service.service "$DEPLOY_USER@$DEPLOY_HOST:/tmp/password-self-service.service"
+    - scp -o StrictHostKeyChecking=yes feishu-login/etc/password-self-service.yaml "$DEPLOY_USER@$DEPLOY_HOST:/tmp/password-self-service.yaml.example"
+    - |
+      ssh -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" bash -s <<'EOF'
+      set -euo pipefail
+      if [[ "$(id -u)" -eq 0 ]]; then SUDO=""; else SUDO="sudo"; fi
+      PREFIX=/opt/password-self-service
+      if ! id -u pss >/dev/null 2>&1; then
+        $SUDO useradd --system --home "$PREFIX" --shell /usr/sbin/nologin pss
+      fi
+      $SUDO install -d -o pss -g pss -m 0755 "$PREFIX" "$PREFIX/etc" "$PREFIX/var"
+      $SUDO systemctl stop password-self-service || true
+      $SUDO install -o pss -g pss -m 0755 /tmp/password-self-service.new "$PREFIX/password-self-service"
+      $SUDO install -m 0644 /tmp/password-self-service.service /etc/systemd/system/password-self-service.service
+      if [[ ! -f "$PREFIX/etc/password-self-service.yaml" ]]; then
+        $SUDO install -o pss -g pss -m 0640 /tmp/password-self-service.yaml.example "$PREFIX/etc/password-self-service.yaml"
+        echo "已写入示例配置，请在服务器上改成真实域控和飞书参数。"
+      else
+        echo "保留已有配置 $PREFIX/etc/password-self-service.yaml"
+      fi
+      rm -f /tmp/password-self-service.new /tmp/password-self-service.service /tmp/password-self-service.yaml.example
+      $SUDO systemctl daemon-reload
+      $SUDO systemctl enable password-self-service
+      $SUDO systemctl restart password-self-service
+      sleep 1
+      curl -fsS http://127.0.0.1:8080/health
+      $SUDO systemctl --no-pager --full status password-self-service || true
+      EOF

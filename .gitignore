@@ -19,3 +19,12 @@
 
 # Mac
 .DS_Store
+
+# editor / build output
+*.swp
+*.swo
+feishu-login/bin/
+login-new/node_modules/
+
+# local secret overrides
+*.local.yaml

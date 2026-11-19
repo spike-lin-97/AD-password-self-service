@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自助中心</title>
+    <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body class="console-body">
+    <header class="console-header">
+        <span>密码自助平台</span>
+        <a href="/api/v1/auth/feishu/logout">退出登录</a>
+    </header>
+
+    <div class="modal-mask hidden" id="appModal">
+        <div class="modal-card" role="dialog" aria-modal="true">
+            <h3 id="modalTitle">提示</h3>
+            <p id="modalMsg"></p>
+            <button type="button" class="btn btn-primary" id="modalOk">确定</button>
+        </div>
+    </div>
+
+    <main class="console-main">
+        <h1 id="welcome">正在确认登录状态…</h1>
+
+        <section class="account-card" id="accountCard" hidden>
+            <div class="name" id="displayName"></div>
+            <div class="meta">AD 登录名</div>
+            <div class="login-name" id="loginName"></div>
+            <button type="button" class="btn btn-ghost copy-btn" id="copyBtn">复制登录名</button>
+            <dl class="pwd-meta">
+                <div>
+                    <dt>上次设置密码</dt>
+                    <dd id="pwdLastSet">—</dd>
+                </div>
+                <div>
+                    <dt>密码过期时间</dt>
+                    <dd id="pwdExpireAt">—</dd>
+                </div>
+            </dl>
+        </section>
+
+        <div class="tabs">
+            <button type="button" class="tab active" data-tab="password">修改密码</button>
+            <button type="button" class="tab" data-tab="unlock">解锁账户</button>
+        </div>
+
+        <form id="changePasswordForm">
+            <div class="form-group">
+                <label for="newPassword">新密码</label>
+                <input type="password" id="newPassword" autocomplete="new-password" required minlength="8">
+                <div class="error-message" id="passwordError"></div>
+            </div>
+            <div class="form-group">
+                <label for="confirmPassword">确认新密码</label>
+                <input type="password" id="confirmPassword" autocomplete="new-password" required minlength="8">
+                <div class="error-message" id="confirmError"></div>
+            </div>
+            <p class="hint">至少 8 位，须包含大写、小写、数字、特殊字符中的至少 3 类，且不能与近期密码相同。</p>
+            <button type="submit" class="btn btn-primary" id="submitBtn" style="margin-top: 16px;">修改密码</button>
+            <div class="success-message" id="successMessage"></div>
+            <div class="error-message" id="formError"></div>
+        </form>
+
+        <div id="unlockPane" class="hidden">
+            <p class="hint">若因多次输错密码被 AD 锁定，点下方按钮即可解锁。忘记密码请先修改密码。</p>
+            <button type="button" class="btn btn-primary" id="unlockBtn" style="margin-top: 16px;">解锁我的账户</button>
+            <div class="success-message" id="unlockSuccess"></div>
+            <div class="error-message" id="unlockError"></div>
+        </div>
+    </main>
+    <script src="/assets/js/common.js"></script>
+    <script src="/assets/js/console.js"></script>
+</body>
+</html>
