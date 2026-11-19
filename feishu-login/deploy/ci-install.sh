@@ -33,6 +33,6 @@ systemctl daemon-reload
 systemctl enable "$NAME"
 systemctl restart "$NAME"
 sleep 1
-curl -fsS http://127.0.0.1:8080/health
+curl -fsS http://127.0.0.1:8090/health
 echo
 systemctl --no-pager --full status "$NAME" || true

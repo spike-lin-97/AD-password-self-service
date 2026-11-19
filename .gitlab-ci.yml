@@ -1,4 +1,4 @@
-# main 分支发布到 192.168.9.7。
+# main 分支发布到 192.168.9.7:8090。
 # Runner 是 shell 执行器（跑在 gitlab-runner 容器里）。
 # 项目 CI/CD 变量 DEPLOY_PASSWORD：目标机 skyland 的登录密码，同时用于 sudo。
 
@@ -19,12 +19,15 @@ build:
   script:
     - |
       set -euo pipefail
+      # 安装到作业用户可写目录（避免 /usr/local 无写权限）
+      export GO_ROOT="${CI_PROJECT_DIR}/.go"
+      export PATH="${GO_ROOT}/go/bin:${PATH}"
       if ! command -v go >/dev/null 2>&1 || ! go version | grep -Eq 'go1\.(2[2-9]|[3-9][0-9])'; then
         curl -fsSL -o "/tmp/${GO_TARBALL}" "https://mirrors.aliyun.com/golang/${GO_TARBALL}" \
           || curl -fsSL -o "/tmp/${GO_TARBALL}" "https://go.dev/dl/${GO_TARBALL}"
-        rm -rf /usr/local/go
-        tar -C /usr/local -xzf "/tmp/${GO_TARBALL}"
-        ln -sfn /usr/local/go/bin/go /usr/local/bin/go
+        rm -rf "${GO_ROOT}"
+        mkdir -p "${GO_ROOT}"
+        tar -C "${GO_ROOT}" -xzf "/tmp/${GO_TARBALL}"
       fi
       cd feishu-login
       CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor -ldflags="-s -w" -o bin/password-self-service main.go
@@ -39,7 +42,7 @@ deploy:
     - build
   environment:
     name: production
-    url: http://192.168.9.7:8080
+    url: http://192.168.9.7:8090
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
   script:
