@@ -1,9 +1,13 @@
 # AD密码自助
 
 面向 Microsoft Active Directory 的密码自助服务，支持飞书扫码、飞书一键授权和 AD 账号密码登录。员工验证身份后，可以重置自己的域密码、解锁账户，并查看密码过期时间。
-<img width="360" height="392" alt="image" src="https://github.com/user-attachments/assets/0acef36a-4005-47e1-89ab-c56921295de9" />
+<img width="2866" height="1488" alt="image" src="https://github.com/user-attachments/assets/b4c6778c-b929-48aa-8c42-d5e7f6e33fda" />
+
 
 ## 功能
+<img width="830" height="1168" alt="image" src="https://github.com/user-attachments/assets/66292da2-0435-4d95-8c34-ae930fb5d503" />
+<img width="850" height="346" alt="image" src="https://github.com/user-attachments/assets/bba7474f-5d44-4964-b3ae-e36f6f5a8186" />
+<img width="2864" height="1520" alt="image" src="https://github.com/user-attachments/assets/e5d00101-6a59-483b-8e6a-7de34ee5908d" />
 
 - **多种登录方式**：AD 用户名密码、飞书扫码、飞书一键授权。
 - **密码自助**：重置当前用户的域密码、解锁被锁定的账户。
