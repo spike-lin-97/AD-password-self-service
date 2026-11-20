@@ -28,3 +28,19 @@ login-new/node_modules/
 
 # local secret overrides
 *.local.yaml
+
+# Runtime data and local credentials
+.env
+.env.*
+!.env.example
+*.local.yml
+*.local.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.jsonl
+*.log
+feishu-login/var/
+.go/
+release/

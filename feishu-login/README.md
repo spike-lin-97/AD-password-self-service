@@ -1,198 +1,75 @@
-# 密码自助平台
+# 当前服务部署说明
 
-面向微软 AD 的密码自助服务：员工用 **飞书扫码 / 一键授权 / AD 账密** 登录后，可自行修改域密码、解锁被锁定的账户。
+`feishu-login/` 是当前 AD密码自助服务，独立于仓库根目录的旧版程序。功能、目录结构、配置字段和前端构建步骤见 [项目 README](../README.md)。
 
-本目录（`feishu-login/`）是当前在用的实现。页面和静态资源通过 `go:embed` 打进二进制，部署时只需 **可执行文件 + YAML 配置**。
+## 本地运行
 
-## 功能
-
-- 飞书扫码登录、飞书客户端一键授权、AD 用户名密码登录
-- 按飞书姓名匹配 AD `displayName`，登录后展示 `sAMAccountName`、上次改密时间、密码过期时间
-- 自助改密（unicodePwd）与账户解锁（`lockoutTime=0`）
-- 管理后台：改飞书 / AD 参数，测试飞书与 LDAPS 连通性
-
-## 环境要求
-
-- Ubuntu 20.04 / 22.04 / 24.04（其它 systemd Linux 同样适用）
-- Go 1.22+（仅编译时需要；运行不依赖 Go）
-- 能访问 AD 域控 **LDAPS 636**
-- 飞书开放平台应用（网页应用），已配置重定向 URL
-
-开发机可直接：
+在本目录执行：
 
 ```bash
-cd feishu-login
-make build          # 生成 bin/password-self-service
-make run            # go run，读取 etc/password-self-service.yaml
+cp etc/password-self-service.yaml etc/password-self-service.local.yaml
+# 填写 AD、飞书、随机 Session 密钥和新的后台密码
+go run -mod=vendor main.go --config etc/password-self-service.local.yaml
 ```
 
-浏览器打开 `http://<本机IP>:8090`。健康检查：`curl http://127.0.0.1:8090/health`。
+默认访问 `http://localhost:8090/`，后台为 `/admin.html`。示例账号 `admin` / `change-me` 仅用于初始化，请在开放访问前修改。
 
-## 配置
+配置必填项为空会导致启动失败；占位值通过非空校验也不代表可以连接 AD 或飞书。当前没有空配置初始化向导。
 
-编辑 `etc/password-self-service.yaml`（安装成服务后是 `/opt/password-self-service/etc/password-self-service.yaml`）。YAML **只用空格缩进，不要用 Tab**。
+## 编译与安装
 
-主要字段：
-
-| 段 | 说明 |
-| --- | --- |
-| `server.addr` | 监听地址，示例配置为 `:8090`（代码内置兜底 `:8080`）。生产建议 `server.mode: release` |
-| `ldap.host/port/tls` | 域控地址，生产用 `port: 636` + `tls: true` |
-| `ldap.username/password` | 有改密、解锁权限的绑定账号（DN） |
-| `ldap.base` | 搜索起点，例如 `OU=FeishuSync,DC=example,DC=com` |
-| `ldap.skip-verify` | `true` 时跳过 LDAPS 证书校验（自签/过期证书可用）。配好企业 CA 后改为 `false` 并填写 `ca-file` / `tls-server-name` |
-| `feishu.app-id` / `app-secret` | 飞书应用凭证 |
-| `feishu.redirect-url` | 必须与飞书开放平台「重定向 URL」**逐字一致**，例如 `http://localhost:8090/api/v1/auth/feishu/callback` |
-| `session.hash-key` / `block-key` | Cookie 加解密密钥。生产必须换成随机值：`hash-key` 建议 32 字节，`block-key` 必须是 16/24/32 字节 |
-| `admin.username` / `password` | `/admin.html` 后台账号，默认是 `admin` / `change-me`，部署后**必须立刻修改** |
-
-飞书开放平台还需把该回调地址加到应用的 **安全设置 → 重定向 URL**。匹配规则：飞书用户姓名 = AD `displayName`，且在 `feishu.ad-user-base`（默认等于 `ldap.base`）下唯一。
-
-登录页源码在仓库根目录的 `login-new/`。改完界面后先构建，再编译 Go，因为页面会嵌入二进制：
+Linux systemd 环境，在本目录执行：
 
 ```bash
-cd ../login-new
-npm install
-npm run build   # 写入 feishu-login/web/index.html 与 web/assets/login/
-cd ../feishu-login
 make build
+sudo bash deploy/install.sh
 ```
 
----
+安装脚本会尝试使用本机 Go 和 vendor 编译；没有 Go 时可以使用事先准备好的 `bin/password-self-service`。
 
-## 封装成 Ubuntu systemd 服务
+安装位置：
 
-目标：本机开机后自动拉起，用 `systemctl` 管理，日志进 journald。
+- 程序：`/opt/password-self-service/password-self-service`
+- 配置：`/opt/password-self-service/etc/password-self-service.yaml`
+- 审计日志：`/opt/password-self-service/var/audit.jsonl`
+- systemd 单元：`/etc/systemd/system/password-self-service.service`
+- 运行用户：`pss`
 
-### 1. 安装
-
-在 **这台要跑服务的 Ubuntu** 上进入本目录，用 root 执行：
-
-```bash
-cd /path/to/password-self-service/feishu-login
-chmod +x deploy/install.sh
-sudo ./deploy/install.sh
-```
-
-脚本会优先用 `/usr/local/go`，并用仓库里的 `vendor/` **离线编译**（不访问 `proxy.golang.org`）。若仍失败，可先本机编好再安装：
-
-```bash
-GOPROXY=https://goproxy.cn,direct make build
-sudo ./deploy/install.sh
-```
-
-脚本会：
-
-1. 编译生成 `bin/password-self-service`（若已安装 Go）
-2. 创建系统用户 `pss`（无登录 shell）
-3. 安装到 `/opt/password-self-service/`
-   - 程序：`/opt/password-self-service/password-self-service`
-   - 配置：`/opt/password-self-service/etc/password-self-service.yaml`（**已存在则不覆盖**）
-4. 写入 `/etc/systemd/system/password-self-service.service`
-5. `systemctl enable --now`：开机自启并立刻启动
-
-若 8090 已被旧的 `go run` / 手工进程占用，先停掉再装：
-
-```bash
-# 看谁占用了 8090
-sudo ss -lntp | grep 8090
-# 停掉后重新执行 install.sh，或：
-sudo systemctl restart password-self-service
-```
-
-### 2. 启用 / 启停（日常）
-
-```bash
-sudo systemctl enable password-self-service    # 开机自启（install.sh 已做过）
-sudo systemctl start password-self-service     # 启动
-sudo systemctl stop password-self-service      # 停止
-sudo systemctl restart password-self-service   # 改配置或换二进制后重启
-sudo systemctl status password-self-service    # 看是否 active (running)
-```
-
-### 3. 看日志
-
-```bash
-sudo journalctl -u password-self-service -f
-sudo journalctl -u password-self-service -n 100 --no-pager
-```
-
-启动成功日志里会有 `Starting server on :8090`。然后：
-
-```bash
-curl http://127.0.0.1:8090/health
-# 期望：{"status":"ok"}
-```
-
-防火墙若开了 ufw，放行 8090：
-
-```bash
-sudo ufw allow 8090/tcp
-```
-
-### 4. 改配置 / 升级程序
+**安装脚本仅在目标配置不存在时复制 `etc/password-self-service.yaml`，不会自动使用本地的 `.local.yaml`。** 首次安装会启动服务；对外开放前，请编辑安装目录内的配置，替换所有占位值、后台口令及 Session 密钥，然后重启。已有配置不会被后续安装覆盖。
 
 ```bash
 sudo nano /opt/password-self-service/etc/password-self-service.yaml
 sudo systemctl restart password-self-service
+sudo systemctl status password-self-service
+curl http://127.0.0.1:8090/health
 ```
 
-升级（源码有更新时，在 `feishu-login` 目录再跑一次安装脚本即可；**不会覆盖已有 YAML**）：
+以上健康检查使用示例端口 8090；如修改 `server.addr`，需同步调整命令。安装脚本末尾仍有历史 8080 提示，以实际配置为准。
+
+## 配置与证书
+
+AD 绑定账号需获得目标用户的密码重置和账户解锁权限。通过 LDAPS 连接域控，正式部署配置可信 CA，关闭 `ldap.skip-verify`。证书文件必须允许运行用户读取；systemd 单元启用了 `ProtectHome=true`，不要将运行时证书放在用户家目录。
+
+飞书姓名必须在配置搜索范围内唯一匹配 AD `displayName`。忘记密码、账户锁定的用户应走飞书登录。
+
+后台保存飞书与 AD 配置后会写回正在使用的 YAML，后续请求读取新参数。监听地址及初始化时创建的 Session 管理器相关参数变更后，需要重启服务。替换 Session 密钥后旧登录态失效。
+
+当前程序不使用 Redis 保存会话，不需要单独部署 Redis。页面和静态资源已内嵌，前端变更后必须重新构建二进制。
+
+## 日志与维护
 
 ```bash
-cd /path/to/password-self-service/feishu-login
-sudo ./deploy/install.sh
-```
-
-也可手动：
-
-```bash
-make build
-sudo install -o pss -g pss -m 0755 bin/password-self-service /opt/password-self-service/password-self-service
+sudo journalctl -u password-self-service -f
+sudo journalctl -u password-self-service -n 100 --no-pager
 sudo systemctl restart password-self-service
+sudo systemctl stop password-self-service
+sudo systemctl start password-self-service
 ```
 
-管理后台改过的配置会立刻写回 YAML。服务进程对 `etc`、`var` 目录可写（unit 里 `ReadWritePaths`），无需为改配置而手工重启；改 `server.addr` 等监听项仍需 `systemctl restart`。
+审计日志包含用户信息，可从后台查看。MAC 信息依赖服务器能否从 ARP 表读取，跨网段通常不可得。备份时同时保存配置与审计日志，并限制访问权限。
 
-操作日志写在 `var/audit.jsonl`（安装后为 `/opt/password-self-service/var/audit.jsonl`），后台「操作日志」页可查 IP、MAC、操作的 AD、变更时间、下次到期时间。MAC 只能在用户与服务器同一二层网段时从 ARP 表读取。
+升级时重新编译并执行 `sudo bash deploy/install.sh`；安装脚本保留目标配置。升级前建议备份 `/opt/password-self-service/etc/` 和 `var/`。
 
-### 5. 卸载
+## CI 与旧版文件
 
-```bash
-sudo systemctl disable --now password-self-service
-sudo rm -f /etc/systemd/system/password-self-service.service
-sudo systemctl daemon-reload
-sudo rm -rf /opt/password-self-service
-sudo userdel pss    # 可选
-```
-
----
-
----
-
-## CI/CD 自动部署
-
-推送到 `main` 分支会自动跑 `.gitlab-ci.yml`（`build` → `deploy`），发布到 `192.168.9.7`，线上地址 <http://192.168.9.7:8090>；其他分支不触发。
-
-- **Runner**：shell 执行器，运行在 `192.168.9.10` 的 `gitlab-runner` 容器内，作业用户 `gitlab-runner` 无 `/usr/local` 写权限。
-- **build**：CI 脚本下载 Go 1.22.12 解压到 `$CI_PROJECT_DIR/.go` 并加入 `PATH`，用 `vendor/` 离线编译出 `bin/password-self-service`（artifacts 保留 7 天）。
-- **deploy**：依赖 CI/CD 变量 `DEPLOY_PASSWORD`（发布机 `skyland` 的密码，兼作 sudo 密码），Runner 容器需预装 `sshpass`。脚本 scp 二进制、`.service`、YAML 示例和 `ci-install.sh` 到发布机 `/tmp`，再 sudo 执行 `ci-install.sh`：创建 `pss` 用户、安装到 `/opt/password-self-service/`、注册并启动 `password-self-service.service`、curl `127.0.0.1:8090/health` 做健康检查。
-- **配置不覆盖**：`ci-install.sh` 只在 YAML 不存在时写入示例配置；已存在则保留。因此改端口或改参数必须直接编辑发布机上的 `/opt/password-self-service/etc/password-self-service.yaml` 并 `systemctl restart password-self-service`，只改仓库重新部署不会生效。该 YAML 属主 `pss`、权限 0640，查看需 `sudo`。
-
-## 页面入口
-
-| 地址 | 说明 |
-| --- | --- |
-| `/` | 登录页 |
-| `/console.html` | 自助中心（改密 / 解锁） |
-| `/admin.html` | 管理后台（系统配置 / 操作日志） |
-| `/api/v1/auth/feishu/callback` | 飞书 OAuth 回调（不要当页面打开） |
-
-## 手动编译参数
-
-```bash
-CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/password-self-service main.go
-./bin/password-self-service --config etc/password-self-service.yaml
-```
-
-`--config` 建议用绝对路径，避免从其它工作目录启动时找不到 YAML。systemd unit 已使用绝对路径。
+GitHub 工作流构建并检查当前服务，不发布镜像。GitLab 部署为手动触发，需要自行配置部署变量。根目录 Dockerfile 和 `manifest/` 对应旧版服务，不能直接用作当前飞书版本的部署入口。详见 [项目 README](../README.md#ci-与容器文件)。

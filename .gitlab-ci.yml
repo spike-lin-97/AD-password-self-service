@@ -1,14 +1,12 @@
-# main 分支发布到 192.168.9.7:8090。
+# 可选 GitLab 部署：在 CI/CD 设置中配置 DEPLOY_HOST、DEPLOY_USER、DEPLOY_PASSWORD。
 # Runner 是 shell 执行器（跑在 gitlab-runner 容器里）。
-# 项目 CI/CD 变量 DEPLOY_PASSWORD：目标机 skyland 的登录密码，同时用于 sudo。
+# DEPLOY_PASSWORD 用于目标机 SSH 和 sudo；不要将密码写入仓库。
 
 stages:
   - build
   - deploy
 
 variables:
-  DEPLOY_HOST: "192.168.9.7"
-  DEPLOY_USER: "skyland"
   GOPROXY: "https://goproxy.cn,direct"
   GO_TARBALL: "go1.22.12.linux-amd64.tar.gz"
 
@@ -40,14 +38,17 @@ deploy:
   stage: deploy
   needs:
     - build
+  when: manual
   environment:
     name: production
-    url: http://192.168.9.7:8090
+    url: $DEPLOY_URL
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
   script:
     - |
       set -euo pipefail
+      test -n "${DEPLOY_HOST:-}" || { echo "缺少 DEPLOY_HOST"; exit 1; }
+      test -n "${DEPLOY_USER:-}" || { echo "缺少 DEPLOY_USER"; exit 1; }
       test -n "${DEPLOY_PASSWORD:-}" || { echo "缺少 CI/CD 变量 DEPLOY_PASSWORD"; exit 1; }
       if ! command -v sshpass >/dev/null 2>&1; then
         export DEBIAN_FRONTEND=noninteractive
