@@ -189,7 +189,7 @@ function App() {
             <path d="M2 12L9 9V15L2 12Z" />
             <path d="M22 12L15 15V9L22 12Z" />
           </svg>
-          <span>密码自助</span>
+          <span>AD密码自助</span>
         </div>
 
         <div className="characters-wrapper">
